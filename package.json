@@ -1,9 +1,9 @@
 {
-  "name": "claude-statusline",
-  "version": "1.0.0",
+  "name": "claude-best-statusline",
+  "version": "1.0.1",
   "description": "A customizable statusline for Claude Code that tracks context usage and session limits",
   "bin": {
-    "claude-statusline": "bin/install.js"
+    "claude-best-statusline": "bin/install.js"
   },
   "keywords": [
     "claude",

@@ -2,7 +2,7 @@
 
 ![preview](preview.png)
 
-A real-time statusline for [Claude Code](https://github.com/anthropics/claude-code) that shows your current directory, model, context window usage, and session token limits at a glance. One script, zero config. Auto-detects subscription vs API key.
+A real-time statusline for [Claude Code](https://github.com/anthropics/claude-code) that shows your current directory, model, context window usage, and session token limits at a glance. The usage bar pulls directly from Anthropic's API, the same data you get from `/usage`, so it's always accurate. One script, zero config. Auto-detects subscription vs API key.
 
 ## Why This Statusline
 
@@ -19,13 +19,13 @@ There are only two things that really matter when vibe-coding: **Context Window*
 ### Quick Install (Recommended)
 
 ```bash
-npx claude-statusline
+npx claude-best-statusline
 ```
 
 Or with bun:
 
 ```bash
-bunx claude-statusline
+bunx claude-best-statusline
 ```
 
 Restart Claude Code or start a new session.
@@ -35,7 +35,12 @@ Restart Claude Code or start a new session.
 ```bash
 git clone https://github.com/TahaSabir0/claude-statusline.git
 cd claude-statusline
+
+# macOS / Linux
 ./install.sh
+
+# Windows (PowerShell)
+./install.ps1
 ```
 
 ### Manual Install

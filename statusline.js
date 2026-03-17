@@ -36,7 +36,7 @@ function getUsageColor(percentage) {
 }
 
 function getContextBar(remaining) {
-  const effectiveRemaining = remaining ?? 89;
+  const effectiveRemaining = remaining ?? 100;
   const used = Math.max(0, Math.min(100, 100 - Math.round(effectiveRemaining)));
 
   const filled = Math.floor(used / 10);
