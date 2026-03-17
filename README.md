@@ -2,13 +2,13 @@
 
 ![preview](preview.png)
 
-There are only two things that really matter when vibe-coding: **Context Window** and **Usage** left in your session. Context matters because models have been shown to perform worse as context grows (context rot), and usage matters so you can squeeze every last token out of your session instead of leaving value on the table. This statusline keeps both front and center so you can focus on building. It comes in two versions: a full version that tracks everything, and a lite version without the usage bar for users on API keys.
+There are only two things that really matter when vibe-coding: **Context Window** and **Usage** left in your session. Context matters because models have been shown to perform worse as context grows (context rot), and usage matters so you can squeeze every last token out of your session instead of leaving value on the table. This statusline keeps both metrics visible so you can focus on building. It auto-detects whether you're on a subscription or an API key and adapts accordingly: subscription users get the full usage bar, API key users get a faster, leaner statusline since usage limits don't apply to them.
 
 ## Requirements
 
 - [Claude Code](https://github.com/anthropics/claude-code) installed
 - Node.js (comes with Claude Code)
-- Authenticated Claude account (for API usage tracking in full version)
+- Authenticated Claude account (for usage tracking on subscription plans)
 
 ## Installation
 
@@ -24,19 +24,13 @@ curl -fsSL https://raw.githubusercontent.com/TahaSabir0/claude-statusline/main/i
 1. **Download the script:**
 
    ```bash
-   # For full version with API usage
    curl -o ~/.claude/hooks/statusline.js https://raw.githubusercontent.com/TahaSabir0/claude-statusline/main/statusline.js
-
-   # OR for lite version (faster, no API calls)
-   curl -o ~/.claude/hooks/statusline-lite.js https://raw.githubusercontent.com/TahaSabir0/claude-statusline/main/statusline-lite.js
    ```
 
 2. **Make it executable:**
 
    ```bash
    chmod +x ~/.claude/hooks/statusline.js
-   # or
-   chmod +x ~/.claude/hooks/statusline-lite.js
    ```
 
 3. **Update Claude Code settings:**
@@ -51,8 +45,6 @@ curl -fsSL https://raw.githubusercontent.com/TahaSabir0/claude-statusline/main/i
      }
    }
    ```
-
-   For lite version, use `statusline-lite.js` instead.
 
 4. **Restart Claude Code** or start a new session.
 
@@ -69,21 +61,13 @@ cd claude-statusline
 
 ## Features
 
-### 🎯 Full Version (`statusline.js`)
-
 - **Context Usage**: Visual bar showing token usage (green → yellow → orange → red)
-- **API Usage**: Real-time 5-hour session limit tracking with countdown timer
+- **API Usage**: Real-time 5-hour session limit tracking with countdown timer (subscription users)
 - **Current Directory**: Shows your working directory
 - **Model Name**: Displays which Claude model you're using (Opus, Sonnet, Haiku)
+- **Auto-Detection**: Detects API key vs subscription and adapts automatically
 - **Adaptive Performance**: Fast after first prompt (1.2s vs 1.5s)
 - **Smart Caching**: Shares usage data across sessions, fallback on API timeout
-
-### ⚡ Lite Version (`statusline-lite.js`)
-
-- Same features as full version **except** API usage tracking
-- Faster response time (~500ms)
-- No external API calls
-- Perfect if you don't need usage limits tracking
 
 **Color Coding:**
 

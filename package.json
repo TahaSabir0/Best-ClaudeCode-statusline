@@ -1,0 +1,21 @@
+{
+  "name": "claude-statusline",
+  "version": "1.0.0",
+  "description": "A customizable statusline for Claude Code that tracks context usage and session limits",
+  "bin": {
+    "claude-statusline": "bin/install.js"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "statusline",
+    "vibe-coding",
+    "context-window"
+  ],
+  "author": "TahaSabir0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TahaSabir0/claude-statusline"
+  }
+}

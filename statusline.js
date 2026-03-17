@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 // Claude Code Enhanced Statusline
 // Shows: directory | model | context usage | API usage (5-hour limit) | current task
-// https://github.com/YOUR_USERNAME/claude-statusline
+// Auto-detects API key vs subscription usage
+// https://github.com/TahaSabir0/claude-statusline
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const https = require('https');
+
+const IS_API_KEY = !!process.env.ANTHROPIC_API_KEY;
 
 // Cache configuration
 const CACHE_DIR = path.join(os.homedir(), '.claude', 'cache');
@@ -240,7 +243,6 @@ function outputStatus(data, usageBar) {
     parts.push(model);
     parts.push(`context: ${contextBar}`);
 
-    // Add usage bar if available (from fresh API or cache)
     if (usageBar) {
       parts.push(`usage: ${usageBar}`);
     }
@@ -259,9 +261,18 @@ function outputFallback(usageBar) {
   process.stdout.write(parts.join(' \u2502 '));
 }
 
+// Wrapper that skips usage fetch for API key users
+function getUsage(callback) {
+  if (IS_API_KEY) {
+    callback(null);
+  } else {
+    getUsageWithCache(callback);
+  }
+}
+
 // Process with timeout
 if (process.stdin.isTTY) {
-  getUsageWithCache((usageBar) => {
+  getUsage((usageBar) => {
     outputFallback(usageBar);
     process.exit(0);
   });
@@ -269,13 +280,11 @@ if (process.stdin.isTTY) {
   let input = '';
   let timeoutReached = false;
 
-  // Adaptive overall timeout based on whether cache exists
-  const hasCache = fs.existsSync(USAGE_CACHE_FILE);
-  const overallTimeout = hasCache ? 1300 : 1600; // Faster after first prompt
+  const overallTimeout = IS_API_KEY ? 500 : (fs.existsSync(USAGE_CACHE_FILE) ? 1300 : 1600);
 
   const timeout = setTimeout(() => {
     timeoutReached = true;
-    getUsageWithCache((usageBar) => {
+    getUsage((usageBar) => {
       if (input.length > 0) {
         try {
           const data = JSON.parse(input);
@@ -296,7 +305,7 @@ if (process.stdin.isTTY) {
     if (timeoutReached) return;
     clearTimeout(timeout);
 
-    getUsageWithCache((usageBar) => {
+    getUsage((usageBar) => {
       try {
         const data = JSON.parse(input);
         outputStatus(data, usageBar);
