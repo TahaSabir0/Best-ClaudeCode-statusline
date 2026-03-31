@@ -1,20 +1,12 @@
 #!/usr/bin/env node
 // Claude Code Enhanced Statusline
-// Shows: directory | model | context usage | API usage (5-hour limit) | current task
-// Auto-detects API key vs subscription usage
+// Shows: directory | model | context usage | rate limit usage (5-hour & 7-day) | current task
+// Uses native rate_limits data from Claude Code stdin (v2.1.80+)
 // https://github.com/TahaSabir0/claude-statusline
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const https = require('https');
-
-const IS_API_KEY = !!process.env.ANTHROPIC_API_KEY;
-
-// Cache configuration
-const CACHE_DIR = path.join(os.homedir(), '.claude', 'cache');
-const USAGE_CACHE_FILE = path.join(CACHE_DIR, 'usage-cache.json');
-const CACHE_TTL_MS = 30000; // Cache valid for 30 seconds
 
 // ANSI color codes
 const colors = {
@@ -56,151 +48,36 @@ function getContextBar(remaining) {
   return coloredBar;
 }
 
-// Read cached usage data
-function getCachedUsage() {
-  try {
-    if (!fs.existsSync(USAGE_CACHE_FILE)) return null;
+function getRateLimitBar(rateLimitWindow) {
+  if (!rateLimitWindow || rateLimitWindow.used_percentage == null) return null;
 
-    const cache = JSON.parse(fs.readFileSync(USAGE_CACHE_FILE, 'utf8'));
-    const age = Date.now() - cache.timestamp;
+  const percentage = Math.round(rateLimitWindow.used_percentage);
 
-    // Return cached data if fresh enough
-    if (age < CACHE_TTL_MS) {
-      return cache.data;
-    }
+  // Build bar
+  const barWidth = 10;
+  const filledWidth = Math.round((percentage / 100) * barWidth);
+  const filled = '\u2588'.repeat(filledWidth);
+  const empty = '\u2591'.repeat(barWidth - filledWidth);
+  const color = getUsageColor(percentage);
 
-    return null;
-  } catch (e) {
-    return null;
-  }
-}
+  // Parse reset time
+  let timeStr = '';
+  if (rateLimitWindow.resets_at) {
+    const resetDate = new Date(rateLimitWindow.resets_at * 1000);
+    const now = new Date();
+    const diffMs = resetDate - now;
+    const diffMins = Math.floor(diffMs / 60000);
+    const hours = Math.floor(diffMins / 60);
+    const mins = diffMins % 60;
 
-// Write usage data to cache (shared across all sessions)
-function setCachedUsage(data) {
-  try {
-    if (!fs.existsSync(CACHE_DIR)) {
-      fs.mkdirSync(CACHE_DIR, { recursive: true });
-    }
-
-    const cache = {
-      timestamp: Date.now(),
-      data: data
-    };
-
-    fs.writeFileSync(USAGE_CACHE_FILE, JSON.stringify(cache), 'utf8');
-  } catch (e) {
-    // Silently fail
-  }
-}
-
-function getApiUsage(callback) {
-  try {
-    // Read credentials
-    const credsPath = path.join(os.homedir(), '.claude', '.credentials.json');
-    if (!fs.existsSync(credsPath)) {
-      return callback(null);
-    }
-
-    const creds = JSON.parse(fs.readFileSync(credsPath, 'utf8'));
-    const accessToken = creds.claudeAiOauth?.accessToken;
-
-    if (!accessToken) {
-      return callback(null);
-    }
-
-    // Adaptive timeout: if cache exists, be faster (1200ms); if not, be patient (1500ms)
-    // API typically takes ~850ms, so 1200ms gives reasonable headroom
-    const hasCache = fs.existsSync(USAGE_CACHE_FILE);
-    const timeout = hasCache ? 1200 : 1500;
-
-    // Make API call with adaptive timeout
-    const req = https.request({
-      hostname: 'api.anthropic.com',
-      path: '/api/oauth/usage',
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'anthropic-beta': 'oauth-2025-04-20'
-      },
-      timeout: timeout
-    }, (res) => {
-      let data = '';
-
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const usage = JSON.parse(data);
-
-          // Get 5-hour session usage
-          if (usage.five_hour) {
-            const percentage = Math.round(usage.five_hour.utilization);
-            const resetsAt = usage.five_hour.resets_at;
-
-            // Parse reset time
-            let timeStr = '';
-            if (resetsAt) {
-              const resetDate = new Date(resetsAt);
-              const now = new Date();
-              const diffMs = resetDate - now;
-              const diffMins = Math.floor(diffMs / 60000);
-              const hours = Math.floor(diffMins / 60);
-              const mins = diffMins % 60;
-
-              if (hours > 0) {
-                timeStr = `${hours}h${mins}m`;
-              } else {
-                timeStr = `${mins}m`;
-              }
-            }
-
-            // Build bar
-            const barWidth = 10;
-            const filledWidth = Math.round((percentage / 100) * barWidth);
-            const filled = '\u2588'.repeat(filledWidth);
-            const empty = '\u2591'.repeat(barWidth - filledWidth);
-            const color = getUsageColor(percentage);
-
-            const bar = `${color}${filled}${empty} ${percentage}%${colors.reset}${colors.dim} (${timeStr})${colors.reset}`;
-
-            // Cache the result for other sessions
-            setCachedUsage(bar);
-
-            callback(bar);
-          } else {
-            callback(null);
-          }
-        } catch (e) {
-          callback(null);
-        }
-      });
-    });
-
-    req.on('error', () => callback(null));
-    req.on('timeout', () => {
-      req.destroy();
-      callback(null);
-    });
-
-    req.end();
-  } catch (e) {
-    callback(null);
-  }
-}
-
-// Get usage with cache fallback
-function getUsageWithCache(callback) {
-  // First, try to get fresh data from API
-  getApiUsage((freshData) => {
-    if (freshData) {
-      // Got fresh data, use it
-      callback(freshData);
+    if (hours > 0) {
+      timeStr = `${hours}h${mins}m`;
     } else {
-      // API failed or timed out, try cache
-      const cachedData = getCachedUsage();
-      callback(cachedData);
+      timeStr = `${mins}m`;
     }
-  });
+  }
+
+  return `${color}${filled}${empty} ${percentage}%${colors.reset}${timeStr ? `${colors.dim} (${timeStr})${colors.reset}` : ''}`;
 }
 
 function getCurrentTask(sessionId) {
@@ -228,7 +105,7 @@ function getCurrentTask(sessionId) {
 }
 
 // Main
-function outputStatus(data, usageBar) {
+function outputStatus(data) {
   try {
     const model = data?.model?.display_name || 'Claude';
     const dir = data?.workspace?.current_dir || process.cwd();
@@ -243,8 +120,15 @@ function outputStatus(data, usageBar) {
     parts.push(model);
     parts.push(`context: ${contextBar}`);
 
-    if (usageBar) {
-      parts.push(`usage: ${usageBar}`);
+    // Rate limits from native Claude Code data (v2.1.80+)
+    const fiveHourBar = getRateLimitBar(data?.rate_limits?.five_hour);
+    if (fiveHourBar) {
+      parts.push(`5h: ${fiveHourBar}`);
+    }
+
+    const sevenDayBar = getRateLimitBar(data?.rate_limits?.seven_day);
+    if (sevenDayBar) {
+      parts.push(`7d: ${sevenDayBar}`);
     }
 
     if (task) parts.push(`${colors.dim}${task}${colors.reset}`);
@@ -254,65 +138,43 @@ function outputStatus(data, usageBar) {
   }
 }
 
-function outputFallback(usageBar) {
+function outputFallback() {
   const contextBar = getContextBar(undefined);
   const parts = ['~', 'Claude', `context: ${contextBar}`];
-  if (usageBar) parts.push(`usage: ${usageBar}`);
   process.stdout.write(parts.join(' \u2502 '));
 }
 
-// Wrapper that skips usage fetch for API key users
-function getUsage(callback) {
-  if (IS_API_KEY) {
-    callback(null);
-  } else {
-    getUsageWithCache(callback);
-  }
-}
-
-// Process with timeout
+// Process stdin
 if (process.stdin.isTTY) {
-  getUsage((usageBar) => {
-    outputFallback(usageBar);
-    process.exit(0);
-  });
+  outputFallback();
+  process.exit(0);
 } else {
   let input = '';
-  let timeoutReached = false;
-
-  const overallTimeout = IS_API_KEY ? 500 : (fs.existsSync(USAGE_CACHE_FILE) ? 1300 : 1600);
 
   const timeout = setTimeout(() => {
-    timeoutReached = true;
-    getUsage((usageBar) => {
-      if (input.length > 0) {
-        try {
-          const data = JSON.parse(input);
-          outputStatus(data, usageBar);
-        } catch (e) {
-          outputFallback(usageBar);
-        }
-      } else {
-        outputFallback(usageBar);
+    if (input.length > 0) {
+      try {
+        const data = JSON.parse(input);
+        outputStatus(data);
+      } catch (e) {
+        outputFallback();
       }
-      process.exit(0);
-    });
-  }, overallTimeout);
+    } else {
+      outputFallback();
+    }
+    process.exit(0);
+  }, 500);
 
   process.stdin.setEncoding('utf8');
   process.stdin.on('data', chunk => input += chunk);
   process.stdin.on('end', () => {
-    if (timeoutReached) return;
     clearTimeout(timeout);
-
-    getUsage((usageBar) => {
-      try {
-        const data = JSON.parse(input);
-        outputStatus(data, usageBar);
-      } catch (e) {
-        outputFallback(usageBar);
-      }
-      process.exit(0);
-    });
+    try {
+      const data = JSON.parse(input);
+      outputStatus(data);
+    } catch (e) {
+      outputFallback();
+    }
+    process.exit(0);
   });
 }
