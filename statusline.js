@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const https = require('https');
+const { execSync } = require('child_process');
 
 const IS_API_KEY = !!process.env.ANTHROPIC_API_KEY;
 
@@ -93,15 +94,34 @@ function setCachedUsage(data) {
   }
 }
 
+function getCredentials() {
+  // Try file first (legacy / Linux / Windows)
+  const credsPath = path.join(os.homedir(), '.claude', '.credentials.json');
+  if (fs.existsSync(credsPath)) {
+    try {
+      return JSON.parse(fs.readFileSync(credsPath, 'utf8'));
+    } catch (e) {}
+  }
+
+  // Fallback: macOS keychain
+  if (os.platform() === 'darwin') {
+    try {
+      const raw = execSync('security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null', { encoding: 'utf8', timeout: 1000 });
+      return JSON.parse(raw.trim());
+    } catch (e) {}
+  }
+
+  return null;
+}
+
 function getApiUsage(callback) {
   try {
-    // Read credentials
-    const credsPath = path.join(os.homedir(), '.claude', '.credentials.json');
-    if (!fs.existsSync(credsPath)) {
+    // Read credentials (file or macOS keychain)
+    const creds = getCredentials();
+    if (!creds) {
       return callback(null);
     }
 
-    const creds = JSON.parse(fs.readFileSync(credsPath, 'utf8'));
     const accessToken = creds.claudeAiOauth?.accessToken;
 
     if (!accessToken) {
