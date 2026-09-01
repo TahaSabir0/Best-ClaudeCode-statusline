@@ -33,7 +33,7 @@ Restart Claude Code or start a new session.
 ### Clone & Install
 
 ```bash
-git clone https://github.com/TahaSabir0/claude-statusline.git
+git clone https://github.com/TahaSabir0/Best-ClaudeCode-statusline.git
 cd claude-statusline
 
 # macOS / Linux
@@ -48,7 +48,7 @@ cd claude-statusline
 1. **Download the script:**
 
    ```bash
-   curl -o ~/.claude/hooks/statusline.js https://raw.githubusercontent.com/TahaSabir0/claude-statusline/main/statusline.js
+   curl -o ~/.claude/hooks/statusline.js https://raw.githubusercontent.com/TahaSabir0/Best-ClaudeCode-statusline/main/statusline.js
    ```
 
 2. **Make it executable:**
